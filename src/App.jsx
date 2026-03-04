@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const CITIES = [
   { name: "San Francisco", country: "USA" },
@@ -9,30 +9,38 @@ const CITIES = [
   { name: "Cairo", country: "Egypt" },
 ];
 
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+const MODEL = import.meta.env.VITE_GEMINI_PRIMARY_MODEL || "gemini-2.5-flash-lite";
+
 function WelcomeScreen({ onStart }) {
-  return (
-    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#0d1117", color: "#e6edf3" }}>
-      <div style={{ textAlign: "center" }}>
-        <h1 style={{ marginBottom: 8 }}>Serendipity</h1>
-        <p style={{ opacity: 0.8, marginBottom: 20 }}>Discover cities through your own lens.</p>
-        <button onClick={onStart}>Start</button>
-      </div>
-    </div>
-  );
+  return <button onClick={onStart}>Start</button>;
 }
 
 function CityPicker({ onSelect }) {
   return (
-    <div style={{ minHeight: "100vh", background: "#0d1117", color: "#e6edf3", padding: 24 }}>
-      <h2 style={{ textAlign: "center" }}>Pick a city</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 12, maxWidth: 900, margin: "20px auto" }}>
-        {CITIES.map((city) => (
-          <button key={city.name} onClick={() => onSelect(city.name)} style={{ textAlign: "left", padding: 16 }}>
-            <strong>{city.name}</strong>
-            <div style={{ opacity: 0.7 }}>{city.country}</div>
-          </button>
-        ))}
-      </div>
+    <div>
+      {CITIES.map((city) => (
+        <button key={city.name} onClick={() => onSelect(city.name)}>{city.name}</button>
+      ))}
+    </div>
+  );
+}
+
+function LoadingScreen({ city }) {
+  const [dots, setDots] = useState("");
+  useEffect(() => {
+    const id = setInterval(() => setDots((d) => (d.length >= 3 ? "" : d + ".")), 350);
+    return () => clearInterval(id);
+  }, []);
+  return <div>Generating your {city} itinerary{dots}</div>;
+}
+
+function PlanScreen({ city, planText, onRestart }) {
+  return (
+    <div>
+      <h2>Plan for {city}</h2>
+      <pre style={{ whiteSpace: "pre-wrap" }}>{planText}</pre>
+      <button onClick={onRestart}>Try another city</button>
     </div>
   );
 }
@@ -40,25 +48,36 @@ function CityPicker({ onSelect }) {
 export default function SerendipityApp() {
   const [screen, setScreen] = useState("welcome");
   const [city, setCity] = useState(null);
+  const [planText, setPlanText] = useState("");
 
-  if (screen === "welcome") {
-    return <WelcomeScreen onStart={() => setScreen("city")} />;
+  async function generatePlan(selectedCity) {
+    setScreen("loading");
+    const prompt = `Build a short 1-day plan for ${selectedCity} with 4 activities.`;
+
+    try {
+      if (!GEMINI_API_KEY) throw new Error("Missing Gemini API key");
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+        }
+      );
+
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response.";
+      setPlanText(text);
+      setScreen("plan");
+    } catch (error) {
+      setPlanText(`Error: ${error.message}`);
+      setScreen("plan");
+    }
   }
 
-  if (screen === "city") {
-    return (
-      <CityPicker
-        onSelect={(selectedCity) => {
-          setCity(selectedCity);
-          setScreen("done");
-        }}
-      />
-    );
-  }
-
-  return (
-    <div style={{ minHeight: "100vh", background: "#0d1117", color: "#e6edf3", display: "grid", placeItems: "center" }}>
-      <div>You selected {city}.</div>
-    </div>
-  );
+  if (screen === "welcome") return <WelcomeScreen onStart={() => setScreen("city")} />;
+  if (screen === "city") return <CityPicker onSelect={(value) => { setCity(value); generatePlan(value); }} />;
+  if (screen === "loading") return <LoadingScreen city={city} />;
+  return <PlanScreen city={city} planText={planText} onRestart={() => { setCity(null); setPlanText(""); setScreen("city"); }} />;
 }
