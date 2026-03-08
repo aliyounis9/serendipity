@@ -1,83 +1,79 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
-const CITIES = [
-  { name: "San Francisco", country: "USA" },
-  { name: "Berlin", country: "Germany" },
-  { name: "Buenos Aires", country: "Argentina" },
-  { name: "Beirut", country: "Lebanon" },
-  { name: "Seoul", country: "South Korea" },
-  { name: "Cairo", country: "Egypt" },
+const CITIES = ["San Francisco", "Berlin", "Buenos Aires", "Beirut", "Seoul", "Cairo"];
+
+const CITY_QUESTIONS = {
+  "San Francisco": [
+    { id: "city_neighborhoods", question: "Pick SF neighborhoods", options: ["The Mission", "North Beach", "Golden Gate Park"] },
+    { id: "city_vibes", question: "What do you want in SF?", options: ["food scene", "counterculture", "nature"] },
+  ],
+};
+
+const PERSONALITY_QUESTIONS = [
+  { id: "energy", question: "Energy style?", options: ["high", "low", "structured", "social"] },
+  { id: "food", question: "Food style?", options: ["street", "fine", "spontaneous", "immersive"] },
+  { id: "culture", question: "Culture style?", options: ["history", "offbeat", "nature", "creative"] },
+  { id: "social", question: "Social style?", options: ["deep", "solo", "group", "learning"] },
+  { id: "surprise", question: "Surprise tolerance?", options: ["love", "moderate", "cautious", "full"] },
 ];
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
-const MODEL = import.meta.env.VITE_GEMINI_PRIMARY_MODEL || "gemini-2.5-flash-lite";
+function QuizScreen({ title, questions, onComplete }) {
+  const [idx, setIdx] = useState(0);
+  const [answers, setAnswers] = useState({});
 
-function WelcomeScreen({ onStart }) {
-  return <button onClick={onStart}>Start</button>;
-}
+  const q = questions[idx];
 
-function CityPicker({ onSelect }) {
+  function select(value) {
+    const next = { ...answers, [q.id]: value };
+    setAnswers(next);
+    if (idx < questions.length - 1) setIdx(idx + 1);
+    else onComplete(next);
+  }
+
   return (
     <div>
-      {CITIES.map((city) => (
-        <button key={city.name} onClick={() => onSelect(city.name)}>{city.name}</button>
+      <h2>{title}</h2>
+      <h3>{q.question}</h3>
+      {q.options.map((opt) => (
+        <button key={opt} onClick={() => select(opt)}>{opt}</button>
       ))}
     </div>
   );
 }
 
-function LoadingScreen({ city }) {
-  const [dots, setDots] = useState("");
-  useEffect(() => {
-    const id = setInterval(() => setDots((d) => (d.length >= 3 ? "" : d + ".")), 350);
-    return () => clearInterval(id);
-  }, []);
-  return <div>Generating your {city} itinerary{dots}</div>;
-}
-
-function PlanScreen({ city, planText, onRestart }) {
-  return (
-    <div>
-      <h2>Plan for {city}</h2>
-      <pre style={{ whiteSpace: "pre-wrap" }}>{planText}</pre>
-      <button onClick={onRestart}>Try another city</button>
-    </div>
-  );
-}
-
 export default function SerendipityApp() {
-  const [screen, setScreen] = useState("welcome");
+  const [screen, setScreen] = useState("city");
   const [city, setCity] = useState(null);
-  const [planText, setPlanText] = useState("");
+  const [cityAnswers, setCityAnswers] = useState(null);
+  const [personalityAnswers, setPersonalityAnswers] = useState(null);
 
-  async function generatePlan(selectedCity) {
-    setScreen("loading");
-    const prompt = `Build a short 1-day plan for ${selectedCity} with 4 activities.`;
-
-    try {
-      if (!GEMINI_API_KEY) throw new Error("Missing Gemini API key");
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-        }
-      );
-
-      const data = await response.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "No response.";
-      setPlanText(text);
-      setScreen("plan");
-    } catch (error) {
-      setPlanText(`Error: ${error.message}`);
-      setScreen("plan");
-    }
+  if (screen === "city") {
+    return (
+      <div>
+        <h2>Pick a city</h2>
+        {CITIES.map((name) => (
+          <button key={name} onClick={() => { setCity(name); setScreen("cityquiz"); }}>{name}</button>
+        ))}
+      </div>
+    );
   }
 
-  if (screen === "welcome") return <WelcomeScreen onStart={() => setScreen("city")} />;
-  if (screen === "city") return <CityPicker onSelect={(value) => { setCity(value); generatePlan(value); }} />;
-  if (screen === "loading") return <LoadingScreen city={city} />;
-  return <PlanScreen city={city} planText={planText} onRestart={() => { setCity(null); setPlanText(""); setScreen("city"); }} />;
+  if (screen === "cityquiz") {
+    const q = CITY_QUESTIONS[city] || [
+      { id: "city_neighborhoods", question: `Pick neighborhoods in ${city}`, options: ["Old Town", "Center", "Creative District"] },
+      { id: "city_vibes", question: `What vibe in ${city}?`, options: ["history", "food", "art"] },
+    ];
+
+    return <QuizScreen title={`About ${city}`} questions={q} onComplete={(a) => { setCityAnswers(a); setScreen("personality"); }} />;
+  }
+
+  if (screen === "personality") {
+    return <QuizScreen title="Your travel personality" questions={PERSONALITY_QUESTIONS} onComplete={(a) => { setPersonalityAnswers(a); setScreen("done"); }} />;
+  }
+
+  return (
+    <pre style={{ whiteSpace: "pre-wrap" }}>
+      {JSON.stringify({ city, cityAnswers, personalityAnswers }, null, 2)}
+    </pre>
+  );
 }
