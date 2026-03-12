@@ -1,42 +1,61 @@
 import { useState } from "react";
 
-const CITIES = ["San Francisco", "Berlin", "Buenos Aires", "Beirut", "Seoul", "Cairo"];
+const CITIES = [
+  { name: "San Francisco", country: "USA" },
+  { name: "Berlin", country: "Germany" },
+  { name: "Buenos Aires", country: "Argentina" },
+  { name: "Beirut", country: "Lebanon" },
+  { name: "Seoul", country: "South Korea" },
+  { name: "Cairo", country: "Egypt" },
+];
 
 const CITY_QUESTIONS = {
   "San Francisco": [
-    { id: "city_neighborhoods", question: "Pick SF neighborhoods", options: ["The Mission", "North Beach", "Golden Gate Park"] },
-    { id: "city_vibes", question: "What do you want in SF?", options: ["food scene", "counterculture", "nature"] },
+    { id: "city_neighborhoods", question: "Neighborhoods?", options: ["The Mission", "North Beach", "Golden Gate Park"] },
+    { id: "city_vibes", question: "What vibe?", options: ["food", "counterculture", "nature"] },
   ],
 };
 
 const PERSONALITY_QUESTIONS = [
-  { id: "energy", question: "Energy style?", options: ["high", "low", "structured", "social"] },
-  { id: "food", question: "Food style?", options: ["street", "fine", "spontaneous", "immersive"] },
-  { id: "culture", question: "Culture style?", options: ["history", "offbeat", "nature", "creative"] },
-  { id: "social", question: "Social style?", options: ["deep", "solo", "group", "learning"] },
-  { id: "surprise", question: "Surprise tolerance?", options: ["love", "moderate", "cautious", "full"] },
+  { id: "energy", question: "Energy", options: ["high", "low", "structured", "social"] },
+  { id: "food", question: "Food", options: ["street", "fine", "spontaneous", "immersive"] },
+  { id: "culture", question: "Culture", options: ["history", "offbeat", "nature", "creative"] },
+  { id: "social", question: "Social", options: ["deep", "solo", "group", "learning"] },
+  { id: "surprise", question: "Surprise", options: ["love", "moderate", "cautious", "full"] },
 ];
 
-function QuizScreen({ title, questions, onComplete }) {
-  const [idx, setIdx] = useState(0);
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
+const MODEL = import.meta.env.VITE_GEMINI_PRIMARY_MODEL || "gemini-2.5-flash-lite";
+
+function OptionQuiz({ title, questions, onComplete }) {
+  const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState({});
+  const current = questions[index];
 
-  const q = questions[idx];
-
-  function select(value) {
-    const next = { ...answers, [q.id]: value };
+  function pick(value) {
+    const next = { ...answers, [current.id]: value };
     setAnswers(next);
-    if (idx < questions.length - 1) setIdx(idx + 1);
+    if (index < questions.length - 1) setIndex(index + 1);
     else onComplete(next);
   }
 
   return (
     <div>
       <h2>{title}</h2>
-      <h3>{q.question}</h3>
-      {q.options.map((opt) => (
-        <button key={opt} onClick={() => select(opt)}>{opt}</button>
+      <h3>{current.question}</h3>
+      {current.options.map((opt) => (
+        <button key={opt} onClick={() => pick(opt)}>{opt}</button>
       ))}
+    </div>
+  );
+}
+
+function PlanScreen({ plan, onRestart }) {
+  return (
+    <div>
+      <h2>Your first prototype plan</h2>
+      <pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(plan, null, 2)}</pre>
+      <button onClick={onRestart}>Restart</button>
     </div>
   );
 }
@@ -44,36 +63,99 @@ function QuizScreen({ title, questions, onComplete }) {
 export default function SerendipityApp() {
   const [screen, setScreen] = useState("city");
   const [city, setCity] = useState(null);
+  const [days, setDays] = useState(null);
   const [cityAnswers, setCityAnswers] = useState(null);
   const [personalityAnswers, setPersonalityAnswers] = useState(null);
+  const [plan, setPlan] = useState(null);
+
+  async function generatePlan(selectedCity, selectedDays, selectedCityAnswers, selectedPersonalityAnswers) {
+    setScreen("loading");
+
+    const country = CITIES.find((c) => c.name === selectedCity)?.country || "";
+    const prompt = `Create a ${selectedDays}-day JSON itinerary for ${selectedCity}, ${country}.` +
+      ` Personality: ${JSON.stringify(selectedPersonalityAnswers)}.` +
+      ` City preferences: ${JSON.stringify(selectedCityAnswers)}.`;
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json" },
+          }),
+        }
+      );
+
+      const data = await response.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+      setPlan(JSON.parse(text));
+      setScreen("plan");
+    } catch {
+      setPlan([{ error: "Failed to generate plan" }]);
+      setScreen("plan");
+    }
+  }
 
   if (screen === "city") {
     return (
       <div>
-        <h2>Pick a city</h2>
-        {CITIES.map((name) => (
-          <button key={name} onClick={() => { setCity(name); setScreen("cityquiz"); }}>{name}</button>
+        <h2>Choose city</h2>
+        {CITIES.map((c) => (
+          <button key={c.name} onClick={() => { setCity(c.name); setScreen("days"); }}>{c.name}</button>
+        ))}
+      </div>
+    );
+  }
+
+  if (screen === "days") {
+    return (
+      <div>
+        <h2>How many days?</h2>
+        {[2, 3, 5].map((d) => (
+          <button key={d} onClick={() => { setDays(d); setScreen("cityquiz"); }}>{d}</button>
         ))}
       </div>
     );
   }
 
   if (screen === "cityquiz") {
-    const q = CITY_QUESTIONS[city] || [
-      { id: "city_neighborhoods", question: `Pick neighborhoods in ${city}`, options: ["Old Town", "Center", "Creative District"] },
-      { id: "city_vibes", question: `What vibe in ${city}?`, options: ["history", "food", "art"] },
+    const qs = CITY_QUESTIONS[city] || [
+      { id: "city_neighborhoods", question: "Neighborhoods", options: ["Center", "Old Town", "Arts District"] },
+      { id: "city_vibes", question: "Vibe", options: ["history", "food", "art"] },
     ];
 
-    return <QuizScreen title={`About ${city}`} questions={q} onComplete={(a) => { setCityAnswers(a); setScreen("personality"); }} />;
+    return <OptionQuiz title={`About ${city}`} questions={qs} onComplete={(a) => { setCityAnswers(a); setScreen("personality"); }} />;
   }
 
   if (screen === "personality") {
-    return <QuizScreen title="Your travel personality" questions={PERSONALITY_QUESTIONS} onComplete={(a) => { setPersonalityAnswers(a); setScreen("done"); }} />;
+    return (
+      <OptionQuiz
+        title="Your travel style"
+        questions={PERSONALITY_QUESTIONS}
+        onComplete={(a) => {
+          setPersonalityAnswers(a);
+          generatePlan(city, days, cityAnswers, a);
+        }}
+      />
+    );
   }
 
+  if (screen === "loading") return <div>Generating plan...</div>;
+
   return (
-    <pre style={{ whiteSpace: "pre-wrap" }}>
-      {JSON.stringify({ city, cityAnswers, personalityAnswers }, null, 2)}
-    </pre>
+    <PlanScreen
+      plan={plan}
+      onRestart={() => {
+        setScreen("city");
+        setCity(null);
+        setDays(null);
+        setCityAnswers(null);
+        setPersonalityAnswers(null);
+        setPlan(null);
+      }}
+    />
   );
 }
