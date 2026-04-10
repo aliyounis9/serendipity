@@ -1,61 +1,76 @@
 import { useState } from "react";
 
-const MAPS_API_KEY = import.meta.env.VITE_MAPS_API_KEY || "";
-
-function buildStaticMapUrl(activities) {
-  const baseUrl = "https://maps.googleapis.com/maps/api/staticmap";
-  const params = new URLSearchParams({
-    size: "640x180",
-    scale: "2",
-    maptype: "roadmap",
-    key: MAPS_API_KEY,
-  });
-
-  activities.forEach((act, index) => {
-    if (!act.address) return;
-    params.append("markers", `color:0xF97316|label:${index + 1}|${encodeURIComponent(act.address)}`);
-  });
-
-  return `${baseUrl}?${params.toString()}`;
-}
-
-const PLAN = [
-  {
-    theme: "Old district walk",
-    activities: [
-      { name: "Market breakfast", address: "Jemaa el-Fnaa, Marrakech, Morocco", description: "Start with tea and msemen." },
-      { name: "Garden stop", address: "Le Jardin Secret, Marrakech, Morocco", description: "Cool shade and geometric courtyards." },
-      { name: "Rooftop sunset", address: "El Fenn Rooftop, Marrakech, Morocco", description: "Golden-hour city views." },
-    ],
-  },
+const CITIES = [
+  { name: "San Francisco", country: "USA" },
+  { name: "Berlin", country: "Germany" },
+  { name: "Buenos Aires", country: "Argentina" },
+  { name: "Beirut", country: "Lebanon" },
+  { name: "Seoul", country: "South Korea" },
+  { name: "Cairo", country: "Egypt" },
+  { name: "Amman", country: "Jordan" },
+  { name: "Marrakech", country: "Morocco" },
 ];
 
+const CITY_QUESTIONS = {
+  Amman: [
+    {
+      id: "city_neighborhoods",
+      question: "Which Amman areas interest you?",
+      options: ["Jabal Amman", "Downtown Amman", "Al-Weibdeh", "Abdali"],
+    },
+    {
+      id: "city_vibes",
+      question: "What draws you to Amman?",
+      options: ["history", "food culture", "cafe culture", "art and design"],
+    },
+  ],
+  Marrakech: [
+    {
+      id: "city_neighborhoods",
+      question: "Which Marrakech areas excite you?",
+      options: ["Medina", "Gueliz", "Hivernage", "Kasbah"],
+    },
+    {
+      id: "city_vibes",
+      question: "What do you want most from Marrakech?",
+      options: ["markets and crafts", "relaxation and riads", "food culture", "architecture and gardens"],
+    },
+  ],
+};
+
+function CityQuizPreview({ city }) {
+  const questions = CITY_QUESTIONS[city];
+  if (!questions) return <div>No city-specific quiz yet for {city}.</div>;
+
+  return (
+    <div>
+      <h3>{city} question set</h3>
+      {questions.map((q) => (
+        <div key={q.id} style={{ marginBottom: 12 }}>
+          <strong>{q.question}</strong>
+          <ul>
+            {q.options.map((opt) => <li key={opt}>{opt}</li>)}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function SerendipityApp() {
-  const [mapErrors, setMapErrors] = useState({});
+  const [city, setCity] = useState("Amman");
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>Prototype with map rendering</h2>
-      {PLAN.map((day, index) => (
-        <div key={index} style={{ marginBottom: 18 }}>
-          <h3>{day.theme}</h3>
-          {!mapErrors[index] && (
-            <img
-              src={buildStaticMapUrl(day.activities)}
-              alt={`Map for day ${index + 1}`}
-              style={{ width: "100%", maxWidth: 640, borderRadius: 10, border: "1px solid #ddd" }}
-              onError={() => setMapErrors((prev) => ({ ...prev, [index]: true }))}
-            />
-          )}
-          {mapErrors[index] && <div>Map unavailable for this day.</div>}
-          {day.activities.map((act) => (
-            <div key={act.name} style={{ marginTop: 10 }}>
-              <strong>{act.name}</strong>
-              <div>{act.description}</div>
-            </div>
-          ))}
-        </div>
-      ))}
+      <h2>City expansion snapshot (Amman + Marrakech)</h2>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+        {CITIES.map((c) => (
+          <button key={c.name} onClick={() => setCity(c.name)}>
+            {c.name}
+          </button>
+        ))}
+      </div>
+      <CityQuizPreview city={city} />
     </div>
   );
 }
