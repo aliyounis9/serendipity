@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import html2pdf from "html2pdf.js";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 const CITIES = [
   { name: "San Francisco", country: "USA", flag: "🇺🇸", emoji: "🌉", desc: "Tech, fog & Pacific coastline" },
@@ -325,7 +326,7 @@ function WelcomeScreen({ onStart }) {
   );
 }
 
-function CityPicker({ onSelect }) {
+function CityPicker({ onSelect, onBack }) {
   const [visible, setVisible] = useState(false);
   useEffect(() => { setTimeout(() => setVisible(true), 50); }, []);
 
@@ -338,6 +339,18 @@ function CityPicker({ onSelect }) {
         letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 0.5rem 0", textAlign: "center" }}>
         STEP 1 OF 4
       </p>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: "1rem" }}>
+        <button onClick={onBack} style={{
+          background: "transparent", color: palette.textMuted, border: `1px solid ${palette.border}`,
+          padding: "0.45rem 0.9rem", borderRadius: 10, fontSize: "0.85rem",
+          cursor: "pointer", transition: "all 0.2s",
+        }}
+          onMouseEnter={e => { e.target.style.borderColor = palette.accent; e.target.style.color = palette.text; }}
+          onMouseLeave={e => { e.target.style.borderColor = palette.border; e.target.style.color = palette.textMuted; }}
+        >
+          ← Back
+        </button>
+      </div>
       <h2 style={{ color: palette.text, fontSize: "1.8rem", fontWeight: 700,
         textAlign: "center", margin: "0 0 0.3rem 0" }}>Where are you headed?</h2>
       <p style={{ color: palette.textMuted, textAlign: "center", margin: "0 0 2rem 0" }}>
@@ -378,7 +391,7 @@ function CityPicker({ onSelect }) {
   );
 }
 
-function TripDetailsScreen({ city, onComplete }) {
+function TripDetailsScreen({ city, onComplete, onBack }) {
   const [days, setDays] = useState(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => { setTimeout(() => setVisible(true), 50); }, []);
@@ -403,6 +416,18 @@ function TripDetailsScreen({ city, onComplete }) {
         letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 0.5rem 0" }}>
         STEP 2 OF 4
       </p>
+      <div style={{ marginBottom: "1rem" }}>
+        <button onClick={onBack} style={{
+          background: "transparent", color: palette.textMuted, border: `1px solid ${palette.border}`,
+          padding: "0.45rem 0.9rem", borderRadius: 10, fontSize: "0.85rem",
+          cursor: "pointer", transition: "all 0.2s",
+        }}
+          onMouseEnter={e => { e.target.style.borderColor = palette.accent; e.target.style.color = palette.text; }}
+          onMouseLeave={e => { e.target.style.borderColor = palette.border; e.target.style.color = palette.textMuted; }}
+        >
+          ← Back
+        </button>
+      </div>
       <h2 style={{ color: palette.text, fontSize: "1.8rem", fontWeight: 700,
         textAlign: "center", margin: "0 0 0.3rem 0" }}>
         How long will you be in {city}? {flag}
@@ -467,10 +492,10 @@ function TripDetailsScreen({ city, onComplete }) {
   );
 }
 
-function CityQuizScreen({ city, questions, onComplete }) {
-  const [currentQ, setCurrentQ] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [selected, setSelected] = useState([]);
+function CityQuizScreen({ city, questions, onComplete, onBack, initialProgress, onProgressChange }) {
+  const [currentQ, setCurrentQ] = useState(initialProgress?.currentQ ?? 0);
+  const [answers, setAnswers] = useState(initialProgress?.answers ?? {});
+  const [selected, setSelected] = useState(initialProgress?.selected ?? []);
   const [fading, setFading] = useState(false);
 
   const q = questions[currentQ];
@@ -498,6 +523,22 @@ function CityQuizScreen({ city, questions, onComplete }) {
     }
   }
 
+  function handleBack() {
+    if (currentQ > 0) {
+      const prevIndex = currentQ - 1;
+      const prevQuestion = questions[prevIndex];
+      setCurrentQ(prevIndex);
+      setSelected(Array.isArray(answers[prevQuestion.id]) ? answers[prevQuestion.id] : []);
+      return;
+    }
+
+    onBack();
+  }
+
+  useEffect(() => {
+    onProgressChange?.({ currentQ, answers, selected });
+  }, [currentQ, answers, selected, onProgressChange]);
+
   return (
     <div style={{
       minHeight: "100vh", fontFamily: font, background: palette.bg,
@@ -518,6 +559,18 @@ function CityQuizScreen({ city, questions, onComplete }) {
         letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 0.2rem 0" }}>
         STEP 3 OF 4 — ABOUT {city.toUpperCase()}
       </p>
+      <div style={{ width: "100%", maxWidth: 540, marginBottom: "0.6rem" }}>
+        <button onClick={handleBack} style={{
+          background: "transparent", color: palette.textMuted, border: `1px solid ${palette.border}`,
+          padding: "0.4rem 0.85rem", borderRadius: 10, fontSize: "0.82rem",
+          cursor: "pointer", transition: "all 0.2s",
+        }}
+          onMouseEnter={e => { e.target.style.borderColor = palette.accent; e.target.style.color = palette.text; }}
+          onMouseLeave={e => { e.target.style.borderColor = palette.border; e.target.style.color = palette.textMuted; }}
+        >
+          ← Back
+        </button>
+      </div>
       <p style={{ color: palette.textMuted, fontSize: "0.8rem", margin: "0 0 0.5rem 0" }}>
         Select all that apply
       </p>
@@ -600,10 +653,10 @@ function CityQuizScreen({ city, questions, onComplete }) {
   );
 }
 
-function QuizScreen({ questions, onComplete, stepLabel }) {
-  const [currentQ, setCurrentQ] = useState(0);
-  const [answers, setAnswers] = useState({});
-  const [selected, setSelected] = useState(null);
+function QuizScreen({ questions, onComplete, stepLabel, onBack, initialProgress, onProgressChange }) {
+  const [currentQ, setCurrentQ] = useState(initialProgress?.currentQ ?? 0);
+  const [answers, setAnswers] = useState(initialProgress?.answers ?? {});
+  const [selected, setSelected] = useState(initialProgress?.selected ?? null);
   const [fading, setFading] = useState(false);
 
   const q = questions[currentQ];
@@ -628,6 +681,22 @@ function QuizScreen({ questions, onComplete, stepLabel }) {
     }, 400);
   }
 
+  function handleBack() {
+    if (currentQ > 0) {
+      const prevIndex = currentQ - 1;
+      const prevQuestion = questions[prevIndex];
+      setCurrentQ(prevIndex);
+      setSelected(answers[prevQuestion.id] ?? null);
+      return;
+    }
+
+    onBack();
+  }
+
+  useEffect(() => {
+    onProgressChange?.({ currentQ, answers, selected });
+  }, [currentQ, answers, selected, onProgressChange]);
+
   return (
     <div style={{
       minHeight: "100vh", fontFamily: font, background: palette.bg,
@@ -648,6 +717,18 @@ function QuizScreen({ questions, onComplete, stepLabel }) {
         letterSpacing: "0.1em", textTransform: "uppercase", margin: "0 0 0.5rem 0" }}>
         {stepLabel} — QUESTION {currentQ + 1} OF {questions.length}
       </p>
+      <div style={{ width: "100%", maxWidth: 540, marginBottom: "0.8rem" }}>
+        <button onClick={handleBack} style={{
+          background: "transparent", color: palette.textMuted, border: `1px solid ${palette.border}`,
+          padding: "0.4rem 0.85rem", borderRadius: 10, fontSize: "0.82rem",
+          cursor: "pointer", transition: "all 0.2s",
+        }}
+          onMouseEnter={e => { e.target.style.borderColor = palette.accent; e.target.style.color = palette.text; }}
+          onMouseLeave={e => { e.target.style.borderColor = palette.border; e.target.style.color = palette.textMuted; }}
+        >
+          ← Back
+        </button>
+      </div>
 
       <div style={{
         opacity: fading ? 0 : 1, transform: fading ? "translateY(10px)" : "translateY(0)",
@@ -662,15 +743,15 @@ function QuizScreen({ questions, onComplete, stepLabel }) {
           {q.options.map((opt) => {
             const isSelected = selected === opt.value;
             return (
-              <button key={opt.value} onClick={() => !selected && handleSelect(opt.value)} style={{
+              <button key={opt.value} onClick={() => handleSelect(opt.value)} style={{
                 background: isSelected ? palette.accentSoft : palette.card,
                 border: `1px solid ${isSelected ? palette.accent : palette.border}`,
-                borderRadius: 12, padding: "1rem 1.2rem", cursor: selected ? "default" : "pointer",
+                borderRadius: 12, padding: "1rem 1.2rem", cursor: "pointer",
                 textAlign: "left", display: "flex", alignItems: "center", gap: "0.8rem",
                 transition: "all 0.2s",
               }}
                 onMouseEnter={e => {
-                  if (!selected) {
+                  if (!isSelected) {
                     e.currentTarget.style.borderColor = palette.accent;
                     e.currentTarget.style.background = palette.cardHover;
                   }
@@ -1151,12 +1232,26 @@ function PlanScreen({ city, days, plan, onRestart, whyThisPlan }) {
 
 // --- Main App ---
 export default function SerendipityApp() {
-  const [screen, setScreen] = useState("welcome");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const screenByPath = {
+    "/": "welcome",
+    "/city": "city",
+    "/tripdetails": "tripdetails",
+    "/cityquiz": "cityquiz",
+    "/personalityquiz": "personalityquiz",
+    "/plan": "plan",
+  };
+  const screen = screenByPath[location.pathname] || "welcome";
+
   const [city, setCity] = useState(null);
   const [days, setDays] = useState(null);
   const [cityAnswers, setCityAnswers] = useState(null);
   const [personalityAnswers, setPersonalityAnswers] = useState(null);
   const [plan, setPlan] = useState(null);
+  const [cityQuizProgress, setCityQuizProgress] = useState({ currentQ: 0, answers: {}, selected: [] });
+  const [personalityQuizProgress, setPersonalityQuizProgress] = useState({ currentQ: 0, answers: {}, selected: null });
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [error, setError] = useState(null);
 
   async function requestPlanFromModel(model, prompt) {
@@ -1192,7 +1287,8 @@ export default function SerendipityApp() {
   }
 
   async function generatePlan(city, days, cityAns, personalityAns) {
-    setScreen("loading");
+    setIsGeneratingPlan(true);
+    navigate("/plan");
     setError(null);
 
     const cityData = CITIES.find(c => c.name === city);
@@ -1300,50 +1396,83 @@ Bad description example:
       }
 
       setPlan(ensureAtLeastOneSurprise(parsed));
-      setScreen("plan");
     } catch (err) {
       console.error("API Error:", err);
       setError(err.message || "Something went wrong generating your plan. Please try again.");
-      setScreen("city");
+      navigate("/city");
+    } finally {
+      setIsGeneratingPlan(false);
     }
   }
 
   function handleRestart() {
-    setScreen("city");
+    navigate("/city");
     setCity(null);
     setDays(null);
     setCityAnswers(null);
     setPersonalityAnswers(null);
     setPlan(null);
+    setCityQuizProgress({ currentQ: 0, answers: {}, selected: [] });
+    setPersonalityQuizProgress({ currentQ: 0, answers: {}, selected: null });
+    setIsGeneratingPlan(false);
   }
 
-  if (screen === "welcome") return <WelcomeScreen onStart={() => setScreen("city")} />;
+  if (location.pathname === "/loading") return <Navigate to="/personalityquiz" replace />;
+
+  if (screen === "welcome") return <WelcomeScreen onStart={() => navigate("/city")} />;
 
   if (screen === "city") return (
-    <CityPicker onSelect={(c) => { setCity(c); setScreen("tripdetails"); }} />
+    <CityPicker
+      onSelect={(c) => {
+        setCity(c);
+        setDays(null);
+        setCityAnswers(null);
+        setPersonalityAnswers(null);
+        setPlan(null);
+        setCityQuizProgress({ currentQ: 0, answers: {}, selected: [] });
+        setPersonalityQuizProgress({ currentQ: 0, answers: {}, selected: null });
+        setIsGeneratingPlan(false);
+        navigate("/tripdetails");
+      }}
+      onBack={() => navigate("/")}
+    />
   );
 
+  if (screen === "tripdetails" && !city) return <Navigate to="/city" replace />;
   if (screen === "tripdetails") return (
-    <TripDetailsScreen city={city} onComplete={(d) => { setDays(d); setScreen("cityquiz"); }} />
+    <TripDetailsScreen
+      city={city}
+      onComplete={(d) => { setDays(d); navigate("/cityquiz"); }}
+      onBack={() => navigate("/city")}
+    />
   );
 
+  if (screen === "cityquiz" && (!city || !days)) return <Navigate to="/tripdetails" replace />;
   if (screen === "cityquiz") return (
     <CityQuizScreen
       city={city}
       questions={CITY_QUESTIONS[city] || []}
-      onComplete={(a) => { setCityAnswers(a); setScreen("personalityquiz"); }}
+      onComplete={(a) => { setCityAnswers(a); navigate("/personalityquiz"); }}
+      onBack={() => navigate("/tripdetails")}
+      initialProgress={cityQuizProgress}
+      onProgressChange={setCityQuizProgress}
     />
   );
 
+  if (screen === "personalityquiz" && (!city || !days || !cityAnswers)) return <Navigate to="/cityquiz" replace />;
   if (screen === "personalityquiz") return (
     <QuizScreen
       questions={PERSONALITY_QUESTIONS}
       stepLabel="STEP 4 OF 4"
       onComplete={(a) => { setPersonalityAnswers(a); generatePlan(city, days, cityAnswers, a); }}
+      onBack={() => navigate("/cityquiz")}
+      initialProgress={personalityQuizProgress}
+      onProgressChange={setPersonalityQuizProgress}
     />
   );
 
-  if (screen === "loading") return <LoadingScreen city={city} />;
+  if (screen === "plan" && isGeneratingPlan) return <LoadingScreen city={city} />;
+  if (screen === "plan" && !plan) return <Navigate to="/city" replace />;
   if (screen === "plan" && plan) return (
     <PlanScreen
       city={city}
@@ -1354,5 +1483,5 @@ Bad description example:
     />
   );
 
-  return null;
+  return <Navigate to="/" replace />;
 }
