@@ -5,6 +5,10 @@ It asks onboarding and preference questions, generates a multi-day city itinerar
 
 This is my mini-capstone project for the CP192 course.
 
+## Live Demo
+
+https://serendipity-ali.vercel.app/
+
 ## Setup
 
 ```bash

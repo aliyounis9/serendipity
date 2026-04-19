@@ -820,15 +820,66 @@ const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "";
 const PRIMARY_MODEL = import.meta.env.VITE_GEMINI_PRIMARY_MODEL || "gemini-2.5-flash-lite";
 const FALLBACK_MODEL = import.meta.env.VITE_GEMINI_FALLBACK_MODEL || "gemma-3-1b-it";
 
+const COUNTRY_REGION_CODES = {
+  USA: "us",
+  Germany: "de",
+  Argentina: "ar",
+  Lebanon: "lb",
+  "South Korea": "kr",
+  Egypt: "eg",
+  Jordan: "jo",
+  Morocco: "ma",
+};
+
+function normalizeAddress(rawAddress, city, country) {
+  if (!rawAddress || typeof rawAddress !== "string") return "";
+
+  const trimmed = rawAddress.trim().replace(/\s+/g, " ");
+  const lower = trimmed.toLowerCase();
+  const cityLower = city.toLowerCase();
+  const countryLower = country.toLowerCase();
+
+  if (lower.includes(cityLower) && lower.includes(countryLower)) {
+    return trimmed;
+  }
+
+  if (lower.includes(cityLower)) {
+    return `${trimmed}, ${country}`;
+  }
+
+  return `${trimmed}, ${city}, ${country}`;
+}
+
+function getMapPoints(activities, city, country) {
+  const points = [];
+
+  (activities || []).forEach((act) => {
+    const bestRaw = act?.address || act?.location || "";
+    const normalized = normalizeAddress(bestRaw, city, country);
+    if (normalized) points.push(normalized);
+  });
+
+  return Array.from(new Set(points)).slice(0, 8);
+}
+
 function buildStaticMapUrl(activities, city) {
   const baseUrl = "https://maps.googleapis.com/maps/api/staticmap";
+  const cityMeta = CITIES.find((c) => c.name === city);
+  const country = cityMeta?.country || "";
+  const region = COUNTRY_REGION_CODES[country] || "";
+  const points = getMapPoints(activities, city, country);
+
   const params = new URLSearchParams({
-    size: "640x180",
+    size: "640x320",
     scale: "2",
     maptype: "roadmap",
     style: "feature:all|element:geometry|color:0x1a1a2e",
     key: MAPS_API_KEY,
   });
+
+  if (region) {
+    params.set("region", region);
+  }
   
   // Add custom map styling for dark theme
   const styles = [
@@ -839,16 +890,50 @@ function buildStaticMapUrl(activities, city) {
     "feature:poi|element:geometry|color:0x1f1f3a",
   ];
   styles.forEach(s => params.append("style", s));
-  
-  // Add markers for each activity
-  activities.forEach((act, i) => {
-    if (act.address) {
-      const marker = `color:0xF97316|label:${i + 1}|${encodeURIComponent(act.address)}`;
-      params.append("markers", marker);
-    }
+
+  // For multi-stop days, let Google fit all points. For single-stop/no-stop, use stable fallback framing.
+  if (points.length > 1) {
+    params.set("visible", points.join("|"));
+  } else if (points.length === 1) {
+    params.set("center", points[0]);
+    params.set("zoom", "14");
+  } else {
+    params.set("center", country ? `${city}, ${country}` : city);
+    params.set("zoom", "12");
+  }
+
+  points.forEach((point, i) => {
+    const marker = `color:0xF97316|label:${Math.min(i + 1, 9)}|${point}`;
+    params.append("markers", marker);
   });
   
   return `${baseUrl}?${params.toString()}`;
+}
+
+function buildExternalMapsUrl(activities, city) {
+  const cityMeta = CITIES.find((c) => c.name === city);
+  const country = cityMeta?.country || "";
+  const points = getMapPoints(activities, city, country);
+
+  // Use an interactive directions map when we have multiple stops.
+  if (points.length >= 2) {
+    const origin = points[0];
+    const destination = points[points.length - 1];
+    const waypoints = points.slice(1, -1).join("|");
+    const params = new URLSearchParams({
+      api: "1",
+      origin,
+      destination,
+      travelmode: "walking",
+    });
+    if (waypoints) {
+      params.set("waypoints", waypoints);
+    }
+    return `https://www.google.com/maps/dir/?${params.toString()}`;
+  }
+
+  const query = points[0] || (country ? `${city}, ${country}` : city);
+  return `https://www.google.com/maps/search/?${new URLSearchParams({ api: "1", query }).toString()}`;
 }
 
 function buildWhyThisPlan(personalityAnswers, cityAnswers, city) {
@@ -1072,9 +1157,33 @@ function PlanScreen({ city, days, plan, onRestart, whyThisPlan }) {
                 <img
                   src={buildStaticMapUrl(day.activities, city)}
                   alt={`Map for Day ${di + 1}`}
-                  style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }}
+                  style={{ width: "100%", height: printMode ? 180 : 220, objectFit: "cover", display: "block" }}
                   onError={() => setMapErrors(prev => ({ ...prev, [di]: true }))}
                 />
+              </div>
+            )}
+            {!printMode && (
+              <div style={{ marginBottom: "0.75rem" }}>
+                <a
+                  href={buildExternalMapsUrl(day.activities, city)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "0.35rem",
+                    textDecoration: "none",
+                    color: p.accent,
+                    fontSize: "0.82rem",
+                    fontWeight: 600,
+                    border: `1px solid ${p.border}`,
+                    borderRadius: 8,
+                    padding: "0.35rem 0.65rem",
+                    background: printMode ? "#f0f0f0" : "rgba(255,255,255,0.03)",
+                  }}
+                >
+                  🗺️ Open in Google Maps
+                </a>
               </div>
             )}
 
