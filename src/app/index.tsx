@@ -1,7 +1,7 @@
 import { router } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 
-import { PrimaryButton } from "@/components/primary-button";
+import { Button } from "@/components/button";
 import { Screen } from "@/components/screen";
 import { colors, textStyles } from "@/constants/theme";
 
@@ -30,7 +30,7 @@ export default function IntroScreen() {
         </Text>
       </View>
 
-      <PrimaryButton title="Start" onPress={() => router.push("/interests")} />
+      <Button title="Start" onPress={() => router.push("/interests")} />
     </Screen>
   );
 }

@@ -6,13 +6,20 @@ import { colors } from "@/constants/theme";
 
 type ScreenProps = {
   title: string;
+  hideBackButton?: boolean;
   children: ReactNode;
 };
 
-export function Screen({ title, children }: ScreenProps) {
+export function Screen({ title, hideBackButton = false, children }: ScreenProps) {
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <Stack.Screen options={{ title }} />
+      <Stack.Screen
+        options={{
+          title,
+          headerBackVisible: !hideBackButton,
+          gestureEnabled: !hideBackButton,
+        }}
+      />
       {children}
     </ScrollView>
   );

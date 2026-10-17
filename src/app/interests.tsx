@@ -1,8 +1,8 @@
 import { router } from "expo-router";
 import { Text } from "react-native";
 
+import { Button } from "@/components/button";
 import { OptionRow } from "@/components/option-row";
-import { PrimaryButton } from "@/components/primary-button";
 import { Screen } from "@/components/screen";
 import { textStyles } from "@/constants/theme";
 import { usePreferences } from "@/preferences/preferences-context";
@@ -47,10 +47,10 @@ export default function InterestsScreen() {
         );
       })}
 
-      <PrimaryButton
+      <Button
         title="Continue"
         disabled={!isValidInterestSelection(selected)}
-        onPress={() => router.push("/constraints")}
+        onPress={() => router.push("/get-ready")}
       />
     </Screen>
   );

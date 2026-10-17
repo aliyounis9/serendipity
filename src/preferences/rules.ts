@@ -20,13 +20,10 @@ export function isValidInterestSelection(selected: Interest[]): boolean {
 
 // Returns null until every onboarding question has a valid answer.
 export function toCompletePreferences(draft: PreferencesDraft): UserPreferences | null {
-  const { interests, maxBudgetUsd, maxDistanceMiles } = draft;
+  const { interests } = draft;
 
   if (!interests || !isValidInterestSelection(interests)) {
     return null;
   }
-  if (maxBudgetUsd === undefined || maxDistanceMiles === undefined) {
-    return null;
-  }
-  return { interests, maxBudgetUsd, maxDistanceMiles };
+  return { interests };
 }
