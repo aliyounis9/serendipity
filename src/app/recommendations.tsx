@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "@/components/button";
 import { Screen } from "@/components/screen";
@@ -12,6 +12,7 @@ import { toCompletePreferences } from "@/preferences/rules";
 import { buildRecommendations } from "@/recommendation/recommendations";
 import { INTERESTS, type Activity, type Interest } from "@/types/activity";
 import type { Decision, DecisionRecord, Recommendation } from "@/types/recommendation";
+import { googleMapsUrl } from "@/utils/maps";
 
 export default function RecommendationsScreen() {
   const { preferences } = usePreferences();
@@ -97,9 +98,20 @@ function ActivityCard({ activity }: { activity: Activity }) {
       <Text style={textStyles.body}>{activity.description}</Text>
 
       <View style={styles.details}>
-        <Detail label="Where" value={activity.venue.name} note={activity.venue.address} />
+        <View>
+          <Detail label="Where" value={activity.venue.name} note={activity.venue.address} />
+          {/* With one argument, openURL opens a new tab on web, so the
+              in-memory session in this tab is kept. */}
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => Linking.openURL(googleMapsUrl(activity.venue))}
+            style={styles.mapsLink}
+          >
+            <Text style={styles.mapsLinkText}>Open in Google Maps ↗</Text>
+          </Pressable>
+        </View>
         <Detail label="Cost" value={formatCost(activity.costUsd)} note="Estimate per person" />
-        <Detail label="Group" value={`You + ${STUDY.simulatedOthers} others`} />
+        <Detail label="Group" value={`You + ${STUDY.simulatedOthers} others (simulated)`} />
       </View>
 
       <Text style={textStyles.hint}>
@@ -200,6 +212,15 @@ const styles = StyleSheet.create({
   },
   action: {
     flex: 1,
+  },
+  mapsLink: {
+    alignSelf: "flex-start",
+    paddingVertical: 6,
+  },
+  mapsLinkText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.accent,
   },
   summary: {
     gap: 10,

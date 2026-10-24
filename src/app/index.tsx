@@ -10,16 +10,20 @@ export default function IntroScreen() {
     <Screen title="Welcome">
       <Text style={textStyles.title}>Serendipity</Text>
       <Text style={textStyles.body}>
-        Imagine it&apos;s Saturday afternoon, you&apos;re near 2550 Van Ness
-        Avenue in San Francisco, and you&apos;re free for the next few hours.
+        Serendipity helps you discover spontaneous things to do nearby and
+        meet new people by joining small groups for them.
       </Text>
       <Text style={textStyles.body}>
-        We&apos;ll show you a few nearby activities, one at a time. For each
-        one, decide whether you&apos;d join.
+        For this survey, imagine it&apos;s Saturday afternoon, you&apos;re near
+        2550 Van Ness Avenue in San Francisco, and you&apos;re free for the
+        next few hours.
       </Text>
 
       <View style={styles.notice}>
         <Text style={styles.noticeTitle}>This is a prototype study</Text>
+        <Text style={textStyles.body}>
+          • The places are real, but the invitations are hypothetical.
+        </Text>
         <Text style={textStyles.body}>
           • The other group members you&apos;ll see are simulated. No real
           people have joined.
