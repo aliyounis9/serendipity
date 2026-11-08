@@ -3,6 +3,9 @@ uvicorn==0.54.0
 sqlalchemy==2.1.8
 psycopg[binary]==3.3.7
 pydantic-settings==2.16.2
+# Timezone database for zoneinfo on systems that don't ship one (e.g. slim
+# Docker images, Windows).
+tzdata==2026.6
 
 # Testing
 pytest==9.2.0

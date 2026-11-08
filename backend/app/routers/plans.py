@@ -1,7 +1,8 @@
+import uuid
 from collections.abc import Sequence
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -18,8 +19,6 @@ DbSession = Annotated[Session, Depends(get_db)]
 
 @router.post("", response_model=PlanRead, status_code=status.HTTP_201_CREATED)
 def create_plan(plan_in: PlanCreate, db: DbSession) -> Plan:
-    # By the time this runs, FastAPI has already validated the body with
-    # PlanCreate; invalid requests got a 422 and never reach this function.
     plan = Plan(**plan_in.model_dump())
     db.add(plan)
     db.commit()
@@ -36,3 +35,11 @@ def list_upcoming_plans(db: DbSession) -> Sequence[Plan]:
         .limit(MAX_RESULTS)
     )
     return db.scalars(statement).all()
+
+
+@router.get("/{plan_id}", response_model=PlanRead)
+def get_plan(plan_id: uuid.UUID, db: DbSession) -> Plan:
+    plan = db.get(Plan, plan_id)
+    if plan is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found")
+    return plan

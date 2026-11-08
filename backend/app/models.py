@@ -12,8 +12,7 @@ class Base(DeclarativeBase):
 class Plan(Base):
     __tablename__ = "plans"
     __table_args__ = (
-        # Last line of defense: the database rejects invalid group sizes even
-        # if a bug lets them past the API validation.
+        # Also checked by the API; this covers writes that bypass it.
         CheckConstraint("max_participants BETWEEN 2 AND 5", name="max_participants_range"),
     )
 

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,8 +10,17 @@ from sqlalchemy.orm import Session
 from app.models import Plan
 
 
+SAN_FRANCISCO = ZoneInfo("America/Los_Angeles")
+
+
 def in_days(days: float) -> datetime:
     return datetime.now(UTC) + timedelta(days=days)
+
+
+def sf_time(hour: int, minute: int = 0, days_from_now: int = 1) -> datetime:
+    # A start time within the allowed hours, in San Francisco time.
+    day = datetime.now(SAN_FRANCISCO) + timedelta(days=days_from_now)
+    return day.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
 
 def valid_plan(**overrides) -> dict:
@@ -18,7 +28,7 @@ def valid_plan(**overrides) -> dict:
         "title": "Sunset walk at Crissy Field",
         "description": "Easy waterfront walk",
         "location": "Crissy Field East Beach",
-        "starts_at": in_days(1).isoformat(),
+        "starts_at": sf_time(15).isoformat(),
         "max_participants": 4,
     }
     plan.update(overrides)
@@ -130,3 +140,70 @@ def test_database_rejects_invalid_group_size_even_without_the_api(db_session: Se
     with pytest.raises(IntegrityError, match="max_participants_range"):
         db_session.commit()
     db_session.rollback()
+
+
+def test_get_plan_by_id(client: TestClient):
+    created = client.post("/plans", json=valid_plan()).json()
+
+    response = client.get(f"/plans/{created['id']}")
+
+    assert response.status_code == 200
+    assert response.json() == created
+
+
+def test_get_missing_plan_returns_404(client: TestClient):
+    response = client.get("/plans/00000000-0000-0000-0000-000000000000")
+
+    assert response.status_code == 404
+
+
+def test_get_plan_with_invalid_id_returns_422(client: TestClient):
+    assert client.get("/plans/not-a-uuid").status_code == 422
+
+
+def test_cors_allows_the_expo_web_origin(client: TestClient):
+    response = client.options(
+        "/plans",
+        headers={
+            "Origin": "http://localhost:8081",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:8081"
+
+
+def test_cors_rejects_other_origins(client: TestClient):
+    response = client.get("/plans", headers={"Origin": "https://minerva.edu"})
+
+    assert "access-control-allow-origin" not in response.headers
+
+
+@pytest.mark.parametrize(
+    ("starts_at", "allowed"),
+    [
+        (sf_time(9, 0), True),  # earliest start
+        (sf_time(19, 0), True),  # latest start
+        (sf_time(8, 59), False),
+        (sf_time(19, 1), False),
+        (sf_time(2, 0), False),
+    ],
+)
+def test_start_time_must_be_between_9_and_19_in_san_francisco(
+    client: TestClient, starts_at: datetime, allowed: bool
+):
+    response = client.post("/plans", json=valid_plan(starts_at=starts_at.isoformat()))
+
+    assert response.status_code == (201 if allowed else 422)
+
+
+def test_allowed_hours_use_san_francisco_time_not_the_clients_timezone(client: TestClient):
+    # 15:00 in Berlin is 6:00 in San Francisco, so it's rejected...
+    berlin_afternoon = sf_time(6).astimezone(ZoneInfo("Europe/Berlin"))
+    assert client.post("/plans", json=valid_plan(starts_at=berlin_afternoon.isoformat())).status_code == 422
+
+    # ...while the same SF afternoon is accepted however it's written, e.g. in UTC.
+    sf_afternoon_in_utc = sf_time(15).astimezone(UTC)
+    assert client.post("/plans", json=valid_plan(starts_at=sf_afternoon_in_utc.isoformat())).status_code == 201
