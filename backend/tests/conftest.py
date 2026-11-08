@@ -1,5 +1,6 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, create_engine, text
@@ -10,6 +11,7 @@ from app.config import settings
 from app.database import get_db
 from app.main import app
 from app.models import Base
+from app.routers.places import get_http_client
 
 # Same server and credentials as development, different database.
 DEV_URL = make_url(settings.database_url.get_secret_value())
@@ -55,13 +57,28 @@ def db_session(engine: Engine) -> Iterator[Session]:
         yield session
 
 
+def refuse_real_requests(request: httpx.Request) -> httpx.Response:
+    raise AssertionError(f"test tried to make a real HTTP request to {request.url}")
+
+
+def fake_http_client(handler: Callable[[httpx.Request], httpx.Response]):
+    # An httpx client whose "network" is just the handler function.
+    def override() -> Iterator[httpx.Client]:
+        with httpx.Client(transport=httpx.MockTransport(handler)) as http:
+            yield http
+
+    return override
+
+
 @pytest.fixture
 def client(db_session: Session) -> Iterator[TestClient]:
-    # The app's get_db is swapped for one that uses the test database.
     def override_get_db() -> Iterator[Session]:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
+    # Tests must never call the real Google API (it's billed). Any outgoing
+    # request fails unless a test installs its own fake (see test_places.py).
+    app.dependency_overrides[get_http_client] = fake_http_client(refuse_real_requests)
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

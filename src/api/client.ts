@@ -1,6 +1,6 @@
-import type { NewPlan, Plan } from "@/types/plan";
+import type { NewPlan, PlaceSuggestion, Plan } from "@/types/plan";
 
-// Set in .env.local for local development (see .env.example). 
+// Set in .env.local for local development (see .env.example).
 // When it's missing (e.g. the deployed site), plan features are turned off.
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || undefined;
 
@@ -34,6 +34,12 @@ export function createPlan(plan: NewPlan, apiUrl = API_URL): Promise<Plan> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(plan),
   });
+}
+
+// Location suggestions. Our backend calls Google, so the API key never
+// reaches the app.
+export function fetchPlaceSuggestions(query: string, apiUrl = API_URL): Promise<PlaceSuggestion[]> {
+  return request<PlaceSuggestion[]>(apiUrl, `/places/autocomplete?q=${encodeURIComponent(query)}`);
 }
 
 async function request<T>(apiUrl: string | undefined, path: string, init?: RequestInit): Promise<T> {

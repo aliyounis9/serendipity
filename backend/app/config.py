@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
     database_url: SecretStr
     cors_origins: list[str]
+    # Optional: without it, only place suggestions are unavailable.
+    google_maps_api_key: SecretStr | None = None
 
 
 settings = Settings()

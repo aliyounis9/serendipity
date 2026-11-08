@@ -1,5 +1,5 @@
 // Mirrors the backend schemas in backend/app/schemas.py. Field names match
-// the API's JSON (snake_case), so no conversion is needed.
+// the API's JSON.
 
 // PlanRead: what the API returns.
 export type Plan = {
@@ -19,4 +19,10 @@ export type NewPlan = {
   location: string;
   starts_at: string;
   max_participants: number;
+};
+
+// PlaceSuggestion (backend/app/routers/places.py): a location suggestion.
+export type PlaceSuggestion = {
+  name: string;
+  address: string;
 };

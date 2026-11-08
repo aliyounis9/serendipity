@@ -1,4 +1,4 @@
-import { ApiError, createPlan, fetchPlan, fetchPlans } from "@/api/client";
+import { ApiError, createPlan, fetchPlaceSuggestions, fetchPlan, fetchPlans } from "@/api/client";
 import type { NewPlan, Plan } from "@/types/plan";
 
 const API = "http://api.test";
@@ -129,5 +129,21 @@ describe("createPlan", () => {
       title: "String should have at least 1 character",
       starts_at: "must be in the future",
     });
+  });
+});
+
+describe("fetchPlaceSuggestions", () => {
+  test("GETs /places/autocomplete with the query safely encoded", async () => {
+    const suggestions = [{ name: "Ferry Building", address: "San Francisco, CA, USA" }];
+    fetchMock.mockReturnValue(respond(200, suggestions));
+
+    await expect(fetchPlaceSuggestions("Ferry & Co", API)).resolves.toEqual(suggestions);
+    expect(fetchMock.mock.calls[0][0]).toBe("http://api.test/places/autocomplete?q=Ferry%20%26%20Co");
+  });
+
+  test("turns the backend's 503 into a server error", async () => {
+    fetchMock.mockReturnValue(respond(503, { detail: "Place suggestions are unavailable" }));
+
+    expect((await caught(fetchPlaceSuggestions("ferry", API))).kind).toBe("server");
   });
 });

@@ -5,6 +5,7 @@ import { StyleSheet, Text, TextInput, View, type TextInputProps } from "react-na
 import { ApiError, createPlan } from "@/api/client";
 import { Button } from "@/components/button";
 import { DateTimeInput } from "@/components/date-time-input";
+import { LocationInput } from "@/components/location-input";
 import { OptionRow } from "@/components/option-row";
 import { Screen } from "@/components/screen";
 import { colors, textStyles } from "@/constants/theme";
@@ -55,7 +56,7 @@ export default function CreatePlanScreen() {
       setCreated(await createPlan(result.plan));
     } catch (caught) {
       if (caught instanceof ApiError && caught.kind === "validation") {
-        // The server disagreed with our checks: show its messages per field.
+        // Show the server's validation messages next to the matching fields.
         const serverErrors: PlanFormErrors = {};
         for (const [field, message] of Object.entries(caught.fieldErrors)) {
           const formField = apiFieldToFormField(field);
@@ -113,10 +114,10 @@ export default function CreatePlanScreen() {
       </Field>
 
       <Field label="Location" error={errors.location}>
-        <Input
+        <LocationInput
           value={form.location}
-          onChangeText={(location) => update({ location })}
-          placeholder="Crissy Field East Beach"
+          onChange={(location) => update({ location })}
+          placeholder="Search for a place, e.g. Ferry Building"
           maxLength={LIMITS.location}
         />
       </Field>
