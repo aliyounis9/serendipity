@@ -21,6 +21,10 @@ This is the original prototype I built for user testing. It works without the ba
 - Users can select "I'm in" or "Not today" for each activity.
 - At the end, there's a researcher summary showing the activities, their classifications, the order they appeared in, and the user's decisions.
 
+How the recommendations are chosen:
+
+<img src="docs/images/diagram-3.png" alt="Recommendation algorithm: classify each activity as familiar, adjacent, or novel, take up to 2 from each, fill from leftovers, and shuffle" width="420">
+
 The invitations and groups are simulated for testing. Clicking "I'm in" doesn't actually join an event. The decisions are also only stored in memory for now.
 
 ### Creating and exploring plans
@@ -52,31 +56,9 @@ For now, these features only work locally because the backend hasn't been deploy
 
 ## Architecture
 
-```text
-Expo (React Native + TypeScript)
-    |
-    |-- Recommendations
-    |     Uses local activity data and recommendation logic
-    |
-    |-- Create / Explore Plans
-              |
-              | HTTP requests (JSON)
-              v
-         FastAPI backend
-              |
-              |-- /plans
-              |     |
-              |     v
-              |  SQLAlchemy + Psycopg
-              |     |
-              |     v
-              |  PostgreSQL 18
-              |
-              |-- /places/autocomplete
-                    |
-                    v
-                Google Places API
-```
+![Architecture: the Expo app, the local FastAPI backend, PostgreSQL, and Google Places](docs/images/diagram-1.png)
+
+The diagram sources are in [docs/diagrams.md](docs/diagrams.md).
 
 The backend is inside `backend/`, separate from the Expo app.
 
@@ -106,15 +88,7 @@ I used PostgreSQL for storing plans and SQLAlchemy to interact with it from Pyth
 
 There's currently one table, `plans`, defined in `backend/app/models.py`.
 
-| Column | Type | Description |
-|---|---|---|
-| `id` | uuid | Primary key, generated in Python |
-| `title` | varchar(120) | Required |
-| `description` | text | Optional |
-| `location` | varchar(200) | Required |
-| `starts_at` | timestamptz | Required, indexed |
-| `max_participants` | integer | Between 2 and 5 |
-| `created_at` | timestamptz | Set automatically by PostgreSQL |
+![The plans table and its columns](docs/images/diagram-2.png)
 
 The backend uses two Pydantic schemas, `PlanCreate` and `PlanRead`, to validate requests and define responses. This also prevents users from providing fields like `id` or `created_at` when creating a plan.
 
