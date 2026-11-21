@@ -26,3 +26,15 @@ class Plan(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class Profile(Base):
+    __tablename__ = "profiles"
+
+    # The user's Supabase ID (the token's "sub")
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    display_name: Mapped[str] = mapped_column(String(50))
+    bio: Mapped[str | None] = mapped_column(String(200))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )

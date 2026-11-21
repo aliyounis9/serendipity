@@ -11,17 +11,18 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from fastapi.testclient import TestClient
 from jwt.algorithms import ECAlgorithm
+from sqlalchemy.orm import Session
 
 from app.auth import get_supabase_keys
 from app.config import settings
 from app.main import app
+from app.models import Profile
 
 PROJECT_URL = "https://test-project.supabase.co"
 ISSUER = f"{PROJECT_URL}/auth/v1"
 KEY_ID = "test-key"
 
-# Our stand-in for Supabase's signing key. Only "Supabase" (the tests) has
-# the private half; the API only ever gets the public half.
+# Only "Supabase" (the tests) has the private half; the API only ever gets the public half.
 SUPABASE_PRIVATE_KEY = ec.generate_private_key(ec.SECP256R1())
 SUPABASE_PUBLIC_JWK = jwt.PyJWK(
     {**ECAlgorithm.to_jwk(SUPABASE_PRIVATE_KEY.public_key(), as_dict=True), "alg": "ES256", "kid": KEY_ID}
@@ -72,11 +73,14 @@ def b64url(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
 
 
-def test_valid_token_identifies_the_user(client: TestClient, supabase: None):
+def test_valid_token_identifies_the_user(client: TestClient, supabase: None, db_session: Session):
+    db_session.add(Profile(id=USER_ID, display_name="Ali"))
+    db_session.commit()
+
     response = get_me(client, sign(claims()))
 
     assert response.status_code == 200
-    assert response.json() == {"id": str(USER_ID)}
+    assert response.json()["id"] == str(USER_ID)
 
 
 def test_missing_header_is_rejected(client: TestClient, supabase: None):

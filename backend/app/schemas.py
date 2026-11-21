@@ -3,7 +3,14 @@ from datetime import UTC, datetime, time
 from typing import Annotated
 from zoneinfo import ZoneInfo
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    field_validator,
+)
 
 # All plans are in San Francisco, so their allowed hours are SF local time.
 # Mirrored in src/plans/form.ts.
@@ -11,9 +18,17 @@ PLAN_TIME_ZONE = ZoneInfo("America/Los_Angeles")
 EARLIEST_START = time(9, 0)
 LATEST_START = time(19, 0)
 
-Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
-Location = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+Title = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)
+]
+Location = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+]
 Description = Annotated[str, StringConstraints(strip_whitespace=True, max_length=1000)]
+DisplayName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50)
+]
+Bio = Annotated[str, StringConstraints(strip_whitespace=True, max_length=200)]
 
 
 class PlanCreate(BaseModel):
@@ -59,9 +74,26 @@ class PlanRead(BaseModel):
     created_at: datetime
 
 
-class UserRead(BaseModel):
-    """The logged-in user, as identified by their verified token."""
+class ProfileUpdate(BaseModel):
+    """What a user may send to set their own profile (PUT /me)."""
 
-    model_config = ConfigDict(from_attributes=True)
+    # The id comes from the token, and the email stays in Supabase, so both
+    # are rejected here.
+    model_config = ConfigDict(extra="forbid")
+
+    display_name: DisplayName
+    bio: Bio | None = None
+
+    @field_validator("bio")
+    @classmethod
+    def blank_bio_is_none(cls, value: str | None) -> str | None:
+        return value or None
+
+
+class MeRead(BaseModel):
+    """The logged-in user's own profile."""
 
     id: uuid.UUID
+    email: str | None  # from the token, not stored in our database
+    display_name: str
+    bio: str | None

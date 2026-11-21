@@ -16,6 +16,7 @@ bearer = HTTPBearer(auto_error=False)
 @dataclass(frozen=True)
 class CurrentUser:
     id: uuid.UUID
+    email: str | None
 
 
 @lru_cache
@@ -48,7 +49,7 @@ def get_current_user(
             issuer=f"{settings.supabase_url}/auth/v1",
             options={"require": ["exp", "sub"]},
         )
-        return CurrentUser(id=uuid.UUID(claims["sub"]))
+        return CurrentUser(id=uuid.UUID(claims["sub"]), email=claims.get("email"))
     except jwt.PyJWKClientConnectionError:
         # Supabase is unreachable. Not the user's fault, so not a 401.
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Authentication is unavailable") from None
