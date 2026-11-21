@@ -7,6 +7,7 @@ from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.auth import get_supabase_keys
 from app.config import settings
 from app.database import get_db
 from app.main import app
@@ -61,6 +62,10 @@ def refuse_real_requests(request: httpx.Request) -> httpx.Response:
     raise AssertionError(f"test tried to make a real HTTP request to {request.url}")
 
 
+def refuse_real_jwks():
+    raise AssertionError("test tried to fetch real Supabase keys")
+
+
 def fake_http_client(handler: Callable[[httpx.Request], httpx.Response]):
     # An httpx client whose "network" is just the handler function.
     def override() -> Iterator[httpx.Client]:
@@ -79,6 +84,8 @@ def client(db_session: Session) -> Iterator[TestClient]:
     # Tests must never call the real Google API (it's billed). Any outgoing
     # request fails unless a test installs its own fake (see test_places.py).
     app.dependency_overrides[get_http_client] = fake_http_client(refuse_real_requests)
+    # Same for Supabase: tests sign their own tokens (see test_auth.py).
+    app.dependency_overrides[get_supabase_keys] = refuse_real_jwks
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

@@ -8,6 +8,8 @@ pydantic-settings==2.16.2
 tzdata==2026.6
 # HTTP client for calling Google Places (also used by FastAPI's TestClient).
 httpx==0.28.1
+# Verifies Supabase access tokens (JWTs); [crypto] adds the ES256/RS256 algorithms.
+pyjwt[crypto]==2.15.1
 
 # Testing
 pytest==9.2.0

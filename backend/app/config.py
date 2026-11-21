@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     cors_origins: list[str]
     # Optional: without it, only place suggestions are unavailable.
     google_maps_api_key: SecretStr | None = None
+    # Without it, every endpoint that needs a logged-in user will return 503.
+    supabase_url: str | None = None
 
 
 settings = Settings()

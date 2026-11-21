@@ -57,3 +57,11 @@ class PlanRead(BaseModel):
     starts_at: datetime
     max_participants: int
     created_at: datetime
+
+
+class UserRead(BaseModel):
+    """The logged-in user, as identified by their verified token."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
